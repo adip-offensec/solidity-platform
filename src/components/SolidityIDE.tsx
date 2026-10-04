@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Editor from "@monaco-editor/react";
 import { Play, Code2, AlertTriangle, Cpu, Layers, FileCode, CheckCircle, RefreshCw, Terminal, Sparkles } from "lucide-react";
 
@@ -32,6 +32,12 @@ contract Counter {
 }`
   );
 
+  useEffect(() => {
+    if (initialCode) {
+      setCode(initialCode);
+    }
+  }, [initialCode]);
+
   const [activeTab, setActiveTab] = useState<"compilation" | "execution" | "storage" | "evm">("compilation");
   const [isCompiling, setIsCompiling] = useState(false);
   const [isExecuting, setIsExecuting] = useState(false);
@@ -61,7 +67,6 @@ contract Counter {
       const data = await res.json();
       setCompileResult(data);
 
-      // Set default function if compiled successfully
       if (data.success && data.contracts) {
         const contractName = Object.keys(data.contracts)[0];
         if (contractName && data.contracts[contractName].abi) {
@@ -69,24 +74,27 @@ contract Counter {
           if (funcs.length > 0) setSelectedFunction(funcs[0].name);
         }
       }
+      return data;
     } catch (err) {
       console.error(err);
+      return null;
     } finally {
       setIsCompiling(false);
     }
   };
 
   const handleExecute = async () => {
-    if (!compileResult || !compileResult.contracts) {
-      await handleCompile();
+    let currentCompileData = compileResult;
+    if (!currentCompileData || !currentCompileData.contracts) {
+      currentCompileData = await handleCompile();
     }
 
     setIsExecuting(true);
     setActiveTab("execution");
 
     try {
-      const contractName = compileResult?.contracts ? Object.keys(compileResult.contracts)[0] : "Counter";
-      const contractData = compileResult?.contracts?.[contractName];
+      const contractName = currentCompileData?.contracts ? Object.keys(currentCompileData.contracts)[0] : "Counter";
+      const contractData = currentCompileData?.contracts?.[contractName];
 
       const res = await fetch("/api/execute", {
         method: "POST",
